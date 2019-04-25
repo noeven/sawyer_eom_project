@@ -1,0 +1,160 @@
+homogeneous transforms
+n = 7; % DOF
+
+% DH parameters
+q = sym('q', [n 1], 'real'); % generalized coordinates (joint angles)
+d = sym('d', [n 1], 'real'); % link offsets
+syms a1
+
+% initial conditions for the configuration of Sawyer shown in Figure 1.
+% you can use these values to sense check your work
+% HINT: vpa(subs(expr, vars, vals)) evaluates a symbolic expression 'expr' by
+% substituting each element of 'vals' with its corresponding symbolic variable in 'vars'
+q0 = [0 3*pi/2 0 pi 0 pi 3*pi/2];
+d0 = [317 192.5 400 168.5 400 136.3 133.75];
+a10 = 81;
+
+% cell array of your homogeneous transformations; each Ti{i} is a 4x4 symbolic transform matrix
+% provide your answer in terms of the given symbolic variables
+% NOTE: for symbolic arrays: q(1) = q1, q(2) = q2, etc.
+Ti = cell(n,1);
+
+% Ti = your homogeneous transformations solution
+A=cell(n,1);
+%compute DH Parameter for 7 links
+
+
+
+A{1} = [cos(q(1)) 0 -sin(q(1)) a1*cos(q(1));sin(q(1)) 0 cos(q(1)) a1*sin(q(1));0 -1 0 d(1);0 0 0 1];
+A{2} =[cos(q(2)) 0 -sin(q(2)) 0;sin(q(2)) 0 cos(q(2)) 0;0 -1 0 d(2);0 0 0 1];
+A{3} =[cos(q(3)) 0 -sin(q(3)) 0;sin(q(3)) 0 cos(q(3)) 0;0 -1 0 d(3);0 0 0 1];
+A{4} =[cos(q(4)) 0 -sin(q(4)) 0;sin(q(4)) 0 cos(q(4)) 0;0 -1 0 d(4);0 0 0 1];
+A{5} =[cos(q(5)) 0 -sin(q(5)) 0;sin(q(5)) 0 cos(q(5)) 0;0 -1 0 d(5);0 0 0 1];
+A{6} =[cos(q(6)) 0 -sin(q(6)) 0;sin(q(6)) 0 cos(q(6)) 0;0 -1 0 d(6);0 0 0 1];
+A{7} =[cos(q(7)) -sin(q(7)) 0 0;sin(q(7)) cos(q(7)) 0 0;0 0 1 d(7);0 0 0 1];%%
+
+% your code may look something like:
+for i = 1:n
+    if i>1
+        Ti{i} =Ti{i-1}*A{i};% input symbolic homogeneous transformation matrix i
+    else
+        Ti{i}=A{i};
+    end
+end
+
+% example formatted output:
+d
+
+
+angular velocity jacobian (Jw)
+% Initialize angular velocity jacobian as an nx1 cell array where each element is
+% an 3xn symbolic matrix
+Jw = arrayfun(@(x) sym(['Jw' num2str(x)], [3,n], 'real'), 1:n, 'UniformOutput', 0)';
+R=cell(n,1);
+P=cell(n,1);
+for i = 1:n
+    R{i}=Ti{i}(1:3,1:3);
+    P{i}=Ti{i}(1:3,4);
+
+end
+
+% compute z(i) direction
+z=cell(n,1);
+    z00=[0 0 1]';
+    zero0=[0 0 0]';
+    for i=1:n
+        z{i}=R{i}*z00;
+    end
+
+% your code might look like this
+Jw{1}=[z00, zero0, zero0, zero0, zero0, zero0, zero0];
+Jw{2}=[z00, z{1}, zero0, zero0, zero0, zero0, zero0];
+Jw{3}=[z00, z{1}, z{2}, zero0, zero0, zero0, zero0];
+Jw{4}=[z00, z{1}, z{2}, z{3}, zero0, zero0, zero0];
+Jw{5}=[z00, z{1}, z{2}, z{3}, z{4}, zero0, zero0];
+Jw{6}=[z00, z{1}, z{2}, z{3}, z{4}, z{5}, zero0];
+Jw{7}=[z00, z{1}, z{2}, z{3}, z{4}, z{5}, z{6}];
+
+linear velocity jacobian (Jv)
+% the center of mass of each link measured relative to the link fixed frame
+% like Ti and Jw, c is an nx1 cell array where each element is a symoblic vector/matrix
+% for example: c{3} = [c3x c3y c3z]' is the center of mass of link 3 measured relative to frame 3
+c = arrayfun(@(x) [sym(['c' num2str(x) 'x'], 'real'), sym(['c' num2str(x) 'y'], 'real'), ...
+    sym(['c' num2str(x) 'z'], 'real')]', 1:n, 'UniformOutput', 0)';
+    
+    for i=1:n
+        c0{i}=R{i}*c(i)+P{i};
+    end
+% as with the angular velocity jacobian, the linear velocity jacobian is comprised of n 3xn
+% symbolic matrices stored in a cell array. Jv{i} is the 3xn angular velocity jacobian of link i
+Jv = cell(n,1);
+
+Jvv=cell(n,1);
+for i = 1:n
+    if i>1
+        Jvv{i} = cross(z{i-1},c0{7}-P{i-1});% linear velocity jacobian of link i
+    else
+        Jvv{i}= cross(z00,c0{7}-zero0);
+    end
+end
+
+Jv{1}=[cross(z00,c0{1}-zero0), zero0, zero0, zero0, zero0, zero0, zero0];   %Jv{i} used c{i} as end effector
+Jv{2}=[cross(z00,c0{2}-zero0), cross(z{1},c0{2}-P{1}), zero0, zero0, zero0, zero0, zero0];  
+Jv{3}=[cross(z00,c0{3}-zero0), cross(z{1},c0{3}-P{1}), cross(z{2},c0{3}-P{2}), zero0, zero0, zero0, zero0];
+Jv{4}=[cross(z00,c0{4}-zero0), cross(z{1},c0{4}-P{1}), cross(z{2},c0{4}-P{2}), cross(z{3},c0{4}-P{3}), zero0, zero0, zero0];
+Jv{5}=[cross(z00,c0{5}-zero0), cross(z{1},c0{5}-P{1}), cross(z{2},c0{5}-P{2}), cross(z{3},c0{5}-P{3}), cross(z{4},c0{5}-P{4}), zero0, zero0];
+Jv{6}=[cross(z00,c0{6}-zero0), cross(z{1},c0{6}-P{1}), cross(z{2},c0{6}-P{2}), cross(z{3},c0{6}-P{3}), cross(z{4},c0{6}-P{4}), cross(z{5},c0{6}-P{5}), zero0];
+Jv{7}=[Jvv{1}, Jvv{2}, Jvv{3}, Jvv{4}, Jvv{5}, Jvv{6}, Jvv{7}];
+
+
+potential energy
+m = sym('m', [n 1], 'real'); % mass of each link
+syms g real;
+gravity=[0 0 g]'; 
+for i=1:n
+    if i>1
+        PE=PE+m(i)*gravity'*c0{i};
+    else
+        PE=m(1)*gravity'*c0{1};
+    end
+end
+
+inertial matrix and kinetic energy
+qd = sym('qd', [n 1], 'real'); % "q dot" - the first derivative of the q's in time (joint velocities)
+
+% inertia tensor for each link relative to the inertial frame stored in an nx1 cell array
+I = arrayfun(@(x) inertia_tensor(x), 1:n, 'UniformOutput', 0)';
+
+for i=1:n
+    if i>1
+        D =D+m(i)*Jv{i}.'*Jv{i}+Jw{i}.'*I{i}*Jw{i};  % nxn inertia matrix
+    else
+        D=m(1)*Jv{1}.'*Jv{1}+Jw{1}.'*I{1}*Jw{1}; 
+    end
+end
+
+q_dot=[qd(1) qd(2) qd(3) qd(4) qd(5) qd(6) qd(7)]';
+KE = 0.5*q_dot'*D*q_dot;% total kinetic energy of Sawyer
+
+equations of motion
+qdd = sym('qdd', [n 1], 'real'); % "q double dot" - the second derivative of the q's in time (joint accelerations)
+
+% compute Christoffel matrix
+C=zeros(n,n);
+C=sym(C);
+for j=1:n
+    for k=1:n
+        for i=1:n
+            C(j,k)=C(j,k)+qd(i)*(diff(D(k,j),q(i))+diff(D(k,i),q(j))-diff(D(i,j),q(k)))/2;
+        end
+    end
+end
+
+q_ddot=[qdd(1) qdd(2) qdd(3) qdd(4) qdd(5) qdd(6) qdd(7)]';
+g_q=[diff(PE,q(1)) diff(PE,q(2)) diff(PE,q(3)) diff(PE,q(4)) diff(PE,q(5)) diff(PE,q(6)) diff(PE,q(7))]';
+
+
+
+eom_lhs = D*q_ddot+C*q_dot+g_q;
+
+%%%%%%% THIS IS THE END OF YOUR INPUT/EDITS %%%%%%%%
